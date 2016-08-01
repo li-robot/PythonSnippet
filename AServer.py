@@ -1,9 +1,23 @@
-import socket, threading, time
+import socket, threading, time, queue, json, traceback
+
+msgQueue = queue.Queue()
+
+class User:
+    nickName = ''
+    userId = ''
+    
+class Message:
+    requestId = ''
+    requestType = ''
+    requestContent = ''
+    forward = ''
+
 
 class RequestClient(threading.Thread):
 
     runFlag = True
-
+    user = None
+    
     def __init__(self, addr, socket):
         threading.Thread.__init__(self)
         self.socket = socket
@@ -13,14 +27,23 @@ class RequestClient(threading.Thread):
         while self.runFlag:
             try:
                 data = self.socket.recv(1024)
-                print(str(addr) + "==== " + str(data) + " ====")
+                dataJson = json.loads(data.decode('utf-8').strip())
+                
+                
+                msg = Message()
+                msg.requestId = dataJson['requestId']
+                msg.requestType = dataJson['requestType']
+                msgQueue.put(msg)
+
+                print(data.decode('utf-8').strip())
+                
             except:
-                print("!!! recv error !!!")
                 self.runFlag = False
+                traceback.print_exc()
 
     def writeData(self, data):
             self.socket.sendall(data)
-        
+
 
 
 class PollThread(threading.Thread):
@@ -33,7 +56,6 @@ class PollThread(threading.Thread):
 
     def run(self):
         while self.runFlag:
-            print('Has connects : === ' + str(len(self.clientList)) + " ===")
             for item in self.clientList:
                 try:
                     item.writeData('response'.encode())
@@ -41,13 +63,12 @@ class PollThread(threading.Thread):
                     self.clientList.remove(item)
                 
             time.sleep(3)
-
-
+    
 
 if __name__ == '__main__':
     
     clientList = []
-
+   
     pt = PollThread(clientList)
     pt.start()
     
