@@ -51,7 +51,7 @@ class RequestClient(threading.Thread):
                 dataJson = json.loads(data.decode('utf-8').strip())
 
                 if 'message' == dataJson['requestType']:
-                    msg = parseMessage(dataJson)
+                    msg = self.parseMessage(dataJson)
                     msgQueue.put(msg)
                     resp = Response.response(self.requestId, ErrorCode.REQUEST_SUCCESS)
                     self.writeData(resp)
@@ -70,7 +70,7 @@ class RequestClient(threading.Thread):
         if self.socket:
             self.socket.sendall(data.encode('utf-8'))
 
-    def parseMessage(dataJson):
+    def parseMessage(self, dataJson):
         msg = Message()
         msg.requestId = dataJson['requestId']
         msg.requestType = dataJson['requestType']
@@ -78,12 +78,14 @@ class RequestClient(threading.Thread):
         msg.forward = dataJson['forward']
         return msg
 
-    def handleLogin(dataJson):
+    def handleLogin(self, dataJson):
         pass
 
-    def verifyUser(dataJson):
+    def verifyUser(self, dataJson):
         pass
 
+    def test(self):
+	pass
 
 
 class PollThread(threading.Thread):
