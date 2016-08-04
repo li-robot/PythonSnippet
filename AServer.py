@@ -12,6 +12,8 @@ class User:
     name = ''
     password = ''
     isOnLine = False
+    messageBox = []
+    conn = None
 
 
 class Message:
@@ -26,9 +28,13 @@ class ErrorCode:
     REQUEST_FORMAT_BAD = 1
     REQUEST_FAILED = 2
     LOGIN_FAILED = 3
-
-
-userList = []
+    HAS_LOGINED = 4
+    USER_INEXISTENCE = 5
+    
+## user management
+   
+localUserList = []
+onLineUserList = []
 
 user1 = User('robot', '123')
 user2 = User('ligo', '234')
@@ -49,10 +55,10 @@ class Response:
         return json.dumps(ret) + '\n'
         
 
-class RequestClient(threading.Thread):
+class Connection(threading.Thread):
 
     runFlag = True
-    user = User('','')
+    isConnect = False
     
     def __init__(self, addr, socket):
         threading.Thread.__init__(self)
@@ -67,7 +73,7 @@ class RequestClient(threading.Thread):
                 print(data.decode('utf-8').strip())
                 dataJson = json.loads(data.decode('utf-8').strip())
 
-                if 'message' == dataJson['requestType'] and self.user and self.user.isOnLine:
+                if 'message' == dataJson['requestType'] and self.isConnect:
                     msg = self.parseMessage(dataJson)
                     msgQueue.put(msg)
                     resp = Response.response('message', self.requestId, ErrorCode.REQUEST_SUCCESS)
@@ -78,11 +84,16 @@ class RequestClient(threading.Thread):
                         resp = Response.response('login', self.requestId, ErrorCode.REQUEST_SUCCESS)
                         self.writeData(resp)
                         ## build session ##
-                        self.user = User(dataJson['userName'], dataJson['password'])
-                        self.user.isOnLine = True
+                        user = User(dataJson['userName'], dataJson['password'])
+                        user.isOnLine = True
+                        user.conn = self
+                        onLineUserList.append(user)
+                        self.isConnect = True
+                        ##
                     else:
                         resp = Response.response('login', self.requestId, ErrorCode.LOGIN_FAILED)
                         self.writeData(resp)
+                        self.runFlag = False
                         self.socket.close()
 
                 
@@ -90,6 +101,7 @@ class RequestClient(threading.Thread):
                 self.runFlag = False
                 resp = Response.response(self.requestId, ErrorCode.REQUEST_FORMAT_BAD)
                 self.writeData(resp)
+                self.socket.close()
                 if DEBUG_MODE:
                     traceback.print_exc()
 
@@ -106,7 +118,7 @@ class RequestClient(threading.Thread):
         return msg
 
     def handleLogin(self, dataJson):
-        for user in userList:
+        for user in localUserList:
             if user.name == dataJson['userName'] and user.password == dataJson['password']:
                 return True
             else:
@@ -115,7 +127,7 @@ class RequestClient(threading.Thread):
 
 
 
-class PollThread(threading.Thread):
+class MessageHandleThread(threading.Thread):
 
     runFlag = True
 
@@ -129,26 +141,16 @@ class PollThread(threading.Thread):
            print(" == get a message == ")
            print(" == message id == " + msg.requestId)
 
-    def handleMessage(self, message):
-        if message.requestType == 'message':
-            client = self.getClientByUserName(message.forward)
-            if client:
-                if client.user.isOnLine:
-                    client.writeData(message.requestContent)
+    def handleMessage(self, msg):
+       pass
                 
-                      
-    def getClientByUserName(self, userName):
-        for client in self.clientList:
-            if client.user.name == userName:
-                return client
-        return None
 
 
 if __name__ == '__main__':
     
     clientList = []
    
-    pt = PollThread(clientList)
+    pt = MessageHandleThread(clientList)
     pt.start()
     
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -157,8 +159,7 @@ if __name__ == '__main__':
     while True:
         try:
             client, addr = server.accept()
-            c = RequestClient(addr, client)
-            clientList.append(c)
+            c = Connection(addr, client)
             c.start()
         except:
             print('!!! io error !!!')
