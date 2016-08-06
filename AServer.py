@@ -1,7 +1,7 @@
 import socket, threading, time, queue, json, traceback
 
 msgQueue = queue.Queue()
-DEBUG_MODE = True
+DEBUG_MODE = False
 
 class User:
 
@@ -40,9 +40,9 @@ user1 = User('robot', '123')
 user2 = User('ligo', '234')
 user3 = User('haha', '123')
 
-userList.append(user1)
-userList.append(user2)
-userList.append(user3)
+localUserList.append(user1)
+localUserList.append(user2)
+localUserList.append(user3)
 
 
 class Response:
@@ -69,19 +69,17 @@ class Connection(threading.Thread):
         while self.runFlag:
             try:
                 data = self.socket.recv(1024)
-                
-                print(data.decode('utf-8').strip())
                 dataJson = json.loads(data.decode('utf-8').strip())
 
                 if 'message' == dataJson['requestType'] and self.isConnect:
                     msg = self.parseMessage(dataJson)
                     msgQueue.put(msg)
-                    resp = Response.response('message', self.requestId, ErrorCode.REQUEST_SUCCESS)
+                    resp = Response.response('message', dataJson['requestId'], ErrorCode.REQUEST_SUCCESS)
                     self.writeData(resp)
 
                 if 'login' == dataJson['requestType']:
                     if self.handleLogin(dataJson):
-                        resp = Response.response('login', self.requestId, ErrorCode.REQUEST_SUCCESS)
+                        resp = Response.response('login', dataJson['requestId'], ErrorCode.REQUEST_SUCCESS)
                         self.writeData(resp)
                         ## build session ##
                         user = User(dataJson['userName'], dataJson['password'])
@@ -91,7 +89,7 @@ class Connection(threading.Thread):
                         self.isConnect = True
                         ##
                     else:
-                        resp = Response.response('login', self.requestId, ErrorCode.LOGIN_FAILED)
+                        resp = Response.response('login', dataJson['requestId'], ErrorCode.LOGIN_FAILED)
                         self.writeData(resp)
                         self.runFlag = False
                         self.socket.close()
@@ -99,7 +97,7 @@ class Connection(threading.Thread):
                 
             except:
                 self.runFlag = False
-                resp = Response.response(self.requestId, ErrorCode.REQUEST_FORMAT_BAD)
+                resp = Response.response('','', ErrorCode.REQUEST_FORMAT_BAD)
                 self.writeData(resp)
                 self.socket.close()
                 if DEBUG_MODE:
@@ -140,9 +138,12 @@ class MessageHandleThread(threading.Thread):
            msg = msgQueue.get()
            print(" == get a message == ")
            print(" == message id == " + msg.requestId)
+           handleMessage(msg)
 
     def handleMessage(self, msg):
-       pass
+       for onLine in onLineUserList:
+           if msg.forward == onLine.name:
+               onLine.writeData(msg.requestContent)
                 
 
 
