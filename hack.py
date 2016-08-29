@@ -4,24 +4,22 @@ import urllib.request
 import threading
 import re
 import os
+import hash
 
 class WorkTask(threading.Thread):
 
     path = ''
     
-    def __init__(self, url, path=''):
+    def __init__(self, url, callback):
         threading.Thread.__init__(self)
         self.url = url
-        self.path = path
 
     def run(self):
         list = self.getAllLinks(str(self.getData(self.url)))
         for link in list:
             print(link)
-        if not self.path and os.path.exist(self.path):
-            self.writeToFile(list, self.path, 'a')
-        else:
-            self.writeToFile(list, self.path, 'w')
+        callback()
+       
 
     def getAllLinks(self, data):
         list = re.findall('http://[\\w|\\d|\\.|/]{0,}', data)
@@ -31,13 +29,11 @@ class WorkTask(threading.Thread):
         file = urllib.request.urlopen(url)
         return file.read()
 
-    def writeToFile(self, result, path, mode):
-        file = open(path, mode)
-        file.writelines(result)
+def callback():
+    print('task down!')
 
 
+task = WorkTask('http://www.apicloud.com', callback)
+task.start()
 
-if __name__ == '__main__':
-    task = WorkTask('http://www.apicloud.com', 'c:/log/result.txt')
-    task.start()
    
