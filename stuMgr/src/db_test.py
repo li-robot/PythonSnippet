@@ -1,10 +1,13 @@
 from pymongo import *
+from bson import ObjectId
 
 mongoDb = MongoClient()
-testdb = mongoDb['test']
+testdb = mongoDb['studentManager']
 
-testDoc = testdb['testDoc']
+testDoc = testdb['course']
 
-testDoc1 = testdb['testDoc1']
+objId = '5af13ea3d373302d58bdd45e'
 
-testDoc1.insert({"name":'haha'})
+testDoc.update({'_id': ObjectId(objId)}, {'$set':{'state' : 1}})
+
+print(str(testDoc.find_one({'_id': ObjectId(objId)})))
