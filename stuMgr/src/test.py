@@ -27,6 +27,7 @@ __COURSE_DOC = 'course'
 # 2. contacts
 # 3. period
 # 4. password
+# 5. courseName
 #############################
 
 
@@ -87,6 +88,7 @@ def generateStudent(obj):
     studentDic['contacts'] = obj['contacts']
     studentDic['period'] = obj['period']
     studentDic['password'] = obj['password']
+    studentDic['courseName'] = obj['courseName']
     return studentDic
 
 
@@ -95,6 +97,7 @@ def generateStudentWithoutPassword(obj):
     studentDic['studentName'] = obj['studentName']
     studentDic['contacts'] = obj['contacts']
     studentDic['period'] = obj['period']
+    studentDic['courseName'] = obj['courseName']
     return studentDic
 
 
@@ -188,6 +191,8 @@ def signin():
             return generateCallback(False, 'studentName is empty, add failed')
         studentDoc = getDocument(smDb, __STUDENT_DOC).find_one({"studentName": studentName})
         if studentDoc:
+            if studentDoc['period'] == 0:
+                return generateCallback(False, 'period == 0')
             curPeriod = studentDoc['period'] - 1
             getDocument(smDb, __STUDENT_DOC).update({"studentName": studentName}, {'$set':{'period': curPeriod}})
             return generateCallback(True, 'signin sucess')
@@ -203,14 +208,15 @@ def addStudent():
             studentName = request.args['studentName']
             contacts = request.args['contacts']
             period = request.args['period']
+            courseName = request.args['courseName']
         except KeyError:
-            return generateCallback(False, 'studentName, contacts or period is empty, add failed')
+            return generateCallback(False, 'studentName, contacts, period or courseName is empty, add failed')
 
         studentDoc = getDocument(smDb, __STUDENT_DOC).find_one({"studentName": studentName})
         if studentDoc:
             return generateCallback(False, 'the student has already added')
         else:
-           getDocument(smDb, __STUDENT_DOC).insert({'studentName': studentName, 'contacts': contacts, 'period': int(period), 'password':'123456'})
+           getDocument(smDb, __STUDENT_DOC).insert({'studentName': studentName, 'contacts': contacts, 'period': int(period), 'courseName': courseName, 'password': '123456'})
         return generateCallback(True, 'add success')
 
 
