@@ -47,7 +47,7 @@ def generateCallback(status, msg):
     return jsonify(ret)
 
 # state 表示课程是否结束 0 没有 1 结束
-
+# signin 0 表示未签到 1 表示签到
 def create_course(course_name, start_time, end_time, teacher_name):
     course = dict()
     course['course_name'] = course_name
@@ -89,6 +89,7 @@ def generateStudent(obj):
     studentDic['period'] = obj['period']
     studentDic['password'] = obj['password']
     studentDic['courseName'] = obj['courseName']
+    studentDic[signin] = 0
     return studentDic
 
 
@@ -187,9 +188,28 @@ def signin():
     if request.method == 'POST':
         try:
             studentName = request.form['studentName']
+            courseId = request.form['courseId']
         except KeyError:
-            return generateCallback(False, 'studentName is empty, add failed')
-        studentDoc = getDocument(smDb, __STUDENT_DOC).find_one({"studentName": studentName})
+            return generateCallback(False, 'studentName or courseId is empty, add failed')
+        course = getDocument(smDb, __COURSE_DOC).find_one({'_id': ObjectId(courseId)})
+        stu = getDocument(smDb, __STUDENT_DOC).find_one({'studentName':studentName})
+        if course and stu:
+            studentList = course['students']
+            for student in studentList:
+                if student['studentName'] == studentName:
+                    if stu['period'] == 0:
+                        return generateCallback(False, 'period == 0')
+                    if student['signin'] == 1:
+                        return generateCallback(False, "do not repeat signin")
+                    curPeriod = stu['period'] - 1
+                    student['signin'] = 1
+                    getDocument(smDb, __STUDENT_DOC).update({"studentName": studentName}, {'$set': {'period': curPeriod}})
+                    getDocument(smDb, __COURSE_DOC).update({"_id": ObjectId(courseId)}, {'$set': {'student': studentList}})
+                    return generateCallback(True, 'signin sucess')
+        else:
+            return generateCallback(False, 'student not exist')
+
+        '''
         if studentDoc:
             if studentDoc['period'] == 0:
                 return generateCallback(False, 'period == 0')
@@ -198,6 +218,7 @@ def signin():
             return generateCallback(True, 'signin sucess')
         else:
             return generateCallback(False, 'student not exist')
+        '''
 
 # localhost:8000/student/addStudent?studentName=李治&contacts=15366123467&period=24
 
@@ -262,7 +283,7 @@ def modifyPeriod():
             return generateCallback(False, 'studentName, or period is empty, add failed')
         studentDoc = getDocument(smDb, __STUDENT_DOC).find_one({'studentName': studentName})
         if studentDoc:
-            getDocument(smDb, __STUDENT_DOC).update({'studentName': studentName}, {'$set': {'period': period}})
+            getDocument(smDb, __STUDENT_DOC).update({'studentName': studentName}, {'$set': {'period': int(period)}})
             return generateCallback(True, 'modify success')
         else:
             return generateCallback(False, 'modify failed')
